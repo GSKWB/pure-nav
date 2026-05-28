@@ -331,7 +331,22 @@
         });
 
         // ========== 启动时获取位置 ==========
+        // ========== 搜索输入提示（自动补全） ==========
+        var ac = new BMap.Autocomplete({
+            input: "destination",      // 绑定你的输入框id
+            location: map              // 让提示结果优先显示当前地图视野内的地点
+        });
+        
+        // 当用户选中某个提示词时，直接按这个名字去规划路线
+        ac.addEventListener("onconfirm", function(e) {
+            var selectedValue = e.item.value;  // 用户选中的完整地点名
+            // 把输入框的内容替换成完整的地址
+            document.getElementById('destination').value = selectedValue.business || selectedValue.street || selectedValue.value;
+            // 直接触发导航
+            searchAndRoute(selectedValue.business || selectedValue.street || selectedValue.value);
+        });
         getMyLocation();
+        
 
         // ========== 每3秒更新一次直线距离 ==========
         setInterval(updateRealtimeDistance, 3000);
