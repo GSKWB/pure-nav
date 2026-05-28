@@ -294,20 +294,26 @@
         // ========== 每3秒更新一次直线距离 ==========
         setInterval(updateRealtimeDistance, 3000);
 
-        // ========== 如果用户移动，更新位置（持续监听） ==========
+        // ========== 如果用户移动，更新位置（优化版） ==========
         if (navigator.geolocation) {
             watchId = navigator.geolocation.watchPosition(function(pos) {
                 var newPoint = new BMap.Point(
                     pos.coords.longitude,
                     pos.coords.latitude
                 );
-                // 移动超过10米才更新
-                if (myLocation && map.getDistance(myLocation, newPoint) > 10) {
+                // 移动超过20米才更新路线（减少没必要的频繁规划，更省流量）
+                if (myLocation && map.getDistance(myLocation, newPoint) > 20) {
                     myLocation = newPoint;
                     // 如果已有终点，重新规划路线
                     if (destinationPoint) planRoute(myLocation, destinationPoint);
                 }
-            }, null, { enableHighAccuracy: true });
+            }, function(error) {
+                console.log('位置更新出错：', error.message);
+            }, {
+                enableHighAccuracy: true, // 保持高精度
+                maximumAge: 0,            // 不要缓存
+                timeout: 10000            // 10秒超时
+            });
         }
     </script>
 </body>
