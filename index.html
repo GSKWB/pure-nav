@@ -17,7 +17,6 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        /* 地图全屏 */
         #map {
             width: 100%;
             height: 100%;
@@ -76,7 +75,7 @@
             color: #fff;
         }
 
-        /* 百度搜索提示下拉框，强制提高层级并定位在输入框下方 */
+        /* 百度搜索提示下拉框 */
         .tangram-suggestion {
             z-index: 9999 !important;
             position: absolute !important;
@@ -100,7 +99,6 @@
             flex-direction: column;
             align-items: flex-end;
         }
-        /* 小图标按钮 */
         #info-toggle-btn {
             width: 48px;
             height: 48px;
@@ -120,7 +118,6 @@
         #info-toggle-btn:active {
             transform: scale(0.95);
         }
-        /* 展开的大面板 */
         #info-panel {
             display: none;
             background: rgba(255, 255, 255, 0.95);
@@ -149,7 +146,6 @@
             color: #666;
             margin-top: 4px;
         }
-        /* 收起按钮（向右箭头） */
         #collapse-btn {
             position: absolute;
             top: 8px;
@@ -190,7 +186,6 @@
     </style>
 </head>
 <body>
-    <!-- 地图容器 -->
     <div id="map"></div>
 
     <!-- 顶部搜索面板 -->
@@ -205,7 +200,6 @@
 
     <!-- 可折叠底部信息栏 -->
     <div id="info-container">
-        <!-- 展开的信息面板 -->
         <div id="info-panel">
             <button id="collapse-btn">→</button>
             <div>距离目的地</div>
@@ -216,14 +210,11 @@
                 <button id="btn-start-nav" style="display: none;">▶ 开始导航</button>
             </div>
         </div>
-        <!-- 小图标按钮 -->
         <button id="info-toggle-btn">📍</button>
     </div>
 
-    <!-- 百度地图 JS API -->
     <script src="https://api.map.baidu.com/api?v=3.0&ak=VHJ9he6w5vzGuD6cFGcBsiOIOieo51D7"></script>
     <script>
-        // ========== 全局变量 ==========
         var map = new BMap.Map("map");
         var myLocation = null;
         var destinationPoint = null;
@@ -231,13 +222,14 @@
         var travelMode = 'driving';
         var watchId = null;
         var isManualLocationSet = false;
+        var drivingRoute = null;  // 保存驾车路线实例
+        var walkingRoute = null;  // 保存步行路线实例
 
-        // ========== 初始化地图 ==========
         var defaultPoint = new BMap.Point(116.404, 39.915);
         map.centerAndZoom(defaultPoint, 15);
         map.enableScrollWheelZoom(true);
 
-        // ========== 搜索输入提示（自动补全） ==========
+        // 搜索输入提示
         var ac = new BMap.Autocomplete({
             input: "destination",
             location: map
@@ -249,7 +241,7 @@
             searchAndRoute(finalValue);
         });
 
-        // ========== 获取用户位置 ==========
+        // 获取用户位置
         function getMyLocation(callback) {
             if (navigator.geolocation) {
                 var options = {
@@ -286,7 +278,7 @@
             }
         }
 
-        // ========== 搜索目的地并规划路线 ==========
+        // 搜索目的地并规划路线
         function searchAndRoute(destinationName) {
             if (!myLocation) {
                 alert("请先获取或手动设置起点位置");
@@ -303,7 +295,7 @@
             }, "全国");
         }
 
-        // ========== 路线规划 ==========
+        // 路线规划
         function planRoute(start, end) {
             map.clearOverlays();
 
@@ -315,36 +307,51 @@
             map.addOverlay(endMarker);
             endMarker.setLabel(new BMap.Label("目的地", { offset: new BMap.Size(20, -10) }));
 
-            var routeOptions = {
-                renderOptions: { map: map, autoViewport: true },
-                onSearchComplete: function(results) {
-                    if (results.getStatus() === BMAP_STATUS_SUCCESS) {
-                        currentRoute = results;
-                        showRouteInfo(currentRoute);
-                        document.getElementById('btn-start-nav').style.display = 'block';
-                    }
-                }
-            };
-
             if (travelMode === 'driving') {
-                var driving = new BMap.DrivingRoute(map, routeOptions);
-                driving.search(start, end);
+                drivingRoute = new BMap.DrivingRoute(map, {
+                    renderOptions: { map: map, autoViewport: true },
+                    onSearchComplete: function(results) {
+                        if (drivingRoute.getStatus() === BMAP_STATUS_SUCCESS) {
+                            currentRoute = drivingRoute.getResults();
+                            showRouteInfo(currentRoute);
+                            document.getElementById('btn-start-nav').style.display = 'block';
+                        } else {
+                            alert("驾车路线规划失败，请检查起终点是否合理");
+                        }
+                    }
+                });
+                drivingRoute.search(start, end);
             } else {
-                var walking = new BMap.WalkingRoute(map, routeOptions);
-                walking.search(start, end);
+                walkingRoute = new BMap.WalkingRoute(map, {
+                    renderOptions: { map: map, autoViewport: true },
+                    onSearchComplete: function(results) {
+                        if (walkingRoute.getStatus() === BMAP_STATUS_SUCCESS) {
+                            currentRoute = walkingRoute.getResults();
+                            showRouteInfo(currentRoute);
+                            document.getElementById('btn-start-nav').style.display = 'block';
+                        } else {
+                            alert("步行路线规划失败，请检查起终点是否合理");
+                        }
+                    }
+                });
+                walkingRoute.search(start, end);
             }
         }
 
-        // ========== 显示路线信息 ==========
+        // 显示路线信息
         function showRouteInfo(routeResult) {
+            if (!routeResult) return;
             var plan = routeResult.getPlan(0);
+            if (!plan) return;
+            
             var distance = (plan.getDistance(false) / 1000).toFixed(2);
             var time = plan.getDuration(true);
+
             document.getElementById('distance-text').textContent = distance + ' 公里';
             document.getElementById('time-text').textContent = '预计用时：' + time;
         }
 
-        // ========== 实时更新距离（直线距离） ==========
+        // 实时更新距离
         function updateRealtimeDistance() {
             if (!myLocation || !destinationPoint) return;
             var dist = map.getDistance(myLocation, destinationPoint);
@@ -355,7 +362,7 @@
             }
         }
 
-        // ========== 手动定位 ==========
+        // 手动定位
         document.getElementById('btn-manual-locate').addEventListener('click', function() {
             var center = map.getCenter();
             myLocation = center;
@@ -372,7 +379,7 @@
             alert("手动定位成功！起点已锁定。");
         });
 
-        // ========== 开始导航 ==========
+        // 开始导航
         document.getElementById('btn-start-nav').addEventListener('click', function() {
             if (myLocation && destinationPoint) {
                 map.setViewport([myLocation, destinationPoint]);
@@ -382,7 +389,7 @@
             }
         });
 
-        // ========== 底部信息栏折叠/展开逻辑 ==========
+        // 底部信息栏折叠/展开
         var toggleBtn = document.getElementById('info-toggle-btn');
         var infoPanel = document.getElementById('info-panel');
         var collapseBtn = document.getElementById('collapse-btn');
@@ -405,7 +412,7 @@
             toggleBtn.style.display = 'none';
         };
 
-        // ========== 其他按钮事件 ==========
+        // 切换出行方式
         document.getElementById('btn-driving').addEventListener('click', function() {
             travelMode = 'driving';
             this.classList.add('active');
@@ -418,6 +425,8 @@
             document.getElementById('btn-driving').classList.remove('active');
             if (myLocation && destinationPoint) planRoute(myLocation, destinationPoint);
         });
+
+        // 规划路线按钮
         document.getElementById('btn-go').addEventListener('click', function() {
             var dest = document.getElementById('destination').value.trim();
             if (!dest) {
@@ -430,11 +439,11 @@
             if (e.key === 'Enter') document.getElementById('btn-go').click();
         });
 
-        // ========== 启动 ==========
+        // 启动
         getMyLocation();
         setInterval(updateRealtimeDistance, 3000);
 
-        // ========== 持续位置监听 ==========
+        // 持续位置监听
         if (navigator.geolocation) {
             watchId = navigator.geolocation.watchPosition(function(pos) {
                 if (isManualLocationSet) return;
