@@ -138,29 +138,49 @@
 
         // ========== 获取用户位置 ==========
         function getMyLocation(callback) {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(pos) {
-                        myLocation = new BMap.Point(
-                            pos.coords.longitude,
-                            pos.coords.latitude
-                        );
-                        map.centerAndZoom(myLocation, 16);
-                        // 在地图上标出"我的位置"
-                        var marker = new BMap.Marker(myLocation);
-                        map.clearOverlays();
-                        map.addOverlay(marker);
-                        marker.setLabel(new BMap.Label("我的位置", { offset: new BMap.Size(20, -10) }));
-                        if (callback) callback(myLocation);
-                    },
-                    function() {
-                        alert("无法获取位置，请允许定位权限后刷新页面");
-                    }
+    if (navigator.geolocation) {
+        // 明确告诉浏览器：高精度定位（优先用GPS）
+        var options = {
+            enableHighAccuracy: true,  // 这就是开启GPS的关键
+            timeout: 15000,            // 最多等15秒，超时就放弃
+            maximumAge: 0              // 不使用缓存，只要最新位置
+        };
+
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                myLocation = new BMap.Point(
+                    pos.coords.longitude,
+                    pos.coords.latitude
                 );
-            } else {
-                alert("浏览器不支持定位");
-            }
-        }
+                map.centerAndZoom(myLocation, 16);
+
+                var marker = new BMap.Marker(myLocation);
+                map.clearOverlays();
+                map.addOverlay(marker);
+                marker.setLabel(new BMap.Label("我的位置", { offset: new BMap.Size(20, -10) }));
+
+                if (callback) callback(myLocation);
+            },
+            function(error) {
+                // 定位失败时给出具体原因
+                var msg = "定位失败：";
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        msg += "请允许定位权限"; break;
+                    case error.POSITION_UNAVAILABLE:
+                        msg += "位置信息不可用，请移到开阔地带试试"; break;
+                    case error.TIMEOUT:
+                        msg += "定位超时，请检查网络和GPS"; break;
+                }
+                alert(msg);
+            },
+            options  // 把配置传进去
+        );
+    } else {
+        alert("您的浏览器不支持定位功能");
+    }
+}
+
 
         // ========== 搜索目的地并规划路线 ==========
         function searchAndRoute(destinationName) {
